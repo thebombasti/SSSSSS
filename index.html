@@ -15,20 +15,40 @@
             background-color: #a0aec0;
             border-radius: 3px;
         }
+        /* Style for the built-in console */
+        .activity-log {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background-color: #1f2937; /* Dark background */
+            color: #d1d5db; /* Light gray text */
+            max-height: 250px;
+            overflow-y: auto;
+            border-radius: 0.5rem;
+        }
+        .log-item {
+            padding: 4px 8px;
+            border-bottom: 1px solid #374151;
+            font-size: 0.8rem;
+        }
+        .log-item:last-child {
+            border-bottom: none;
+        }
+        .log-error { color: #f87171; } /* Red for errors */
+        .log-success { color: #34d399; } /* Green for success */
+        .log-info { color: #93c5fd; } /* Blue for info */
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4 sm:p-8 font-sans flex justify-center">
 
-    <div class="max-w-4xl w-full bg-white shadow-xl rounded-xl p-6 md:p-10 space-y-10">
+    <div class="max-w-4xl w-full bg-white shadow-2xl rounded-xl p-6 md:p-10 space-y-10">
 
         <!-- Header -->
         <header class="text-center">
-            <h1 class="text-4xl font-extrabold text-indigo-700">Drive File Manager</h1>
-            <p class="text-gray-500 mt-2">Securely upload files and view the contents of the shared folder.</p>
+            <h1 class="text-4xl font-extrabold text-indigo-700">Secure Drive File Uploader</h1>
+            <p class="text-gray-500 mt-2">Frontend hosted on GitHub Pages, secure backend via Google Apps Script.</p>
         </header>
 
         <!-- Upload Section -->
-        <section class="p-6 border border-indigo-200 rounded-lg bg-indigo-50">
+        <section class="p-6 border border-indigo-200 rounded-xl bg-indigo-50 shadow-inner">
             <h2 class="text-2xl font-semibold text-indigo-600 mb-4">Upload File</h2>
             <form id="uploadForm" class="space-y-4">
                 <div>
@@ -37,12 +57,12 @@
                         file:mr-4 file:py-2 file:px-4
                         file:rounded-full file:border-0
                         file:text-sm file:font-semibold
-                        file:bg-indigo-50 file:text-indigo-700
-                        hover:file:bg-indigo-100"
+                        file:bg-indigo-100 file:text-indigo-700
+                        hover:file:bg-indigo-200 cursor-pointer"
                     />
                 </div>
                 <button type="submit" id="uploadButton"
-                    class="w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-md hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]">
                     Upload to Drive
                 </button>
             </form>
@@ -50,7 +70,7 @@
         </section>
 
         <!-- Folder Contents Section -->
-        <section class="p-6 border border-gray-200 rounded-lg">
+        <section class="p-6 border border-gray-200 rounded-xl shadow-md">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-semibold text-gray-800">Folder Contents</h2>
                 <button id="refreshButton"
@@ -63,7 +83,7 @@
             </div>
 
             <div id="fileListContainer" class="file-list max-h-96 overflow-y-auto border border-gray-300 rounded-lg p-4 bg-gray-50">
-                <p id="loadingList" class="text-center text-gray-500">Loading file list...</p>
+                <p id="loadingList" class="text-center text-gray-500 py-4">Loading file list...</p>
                 <ul id="fileList" class="space-y-3">
                     <!-- File items will be inserted here -->
                 </ul>
@@ -71,13 +91,57 @@
             <div id="listMessage" class="mt-4 p-3 rounded-lg text-sm hidden" role="alert"></div>
         </section>
 
+        <!-- Built-in Console (Activity Log) -->
+        <section class="p-6 border border-gray-300 rounded-xl bg-gray-700 shadow-xl">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-xl font-semibold text-gray-100">Activity Log (Console)</h2>
+                <button id="clearConsoleButton" class="px-3 py-1 bg-gray-600 text-xs text-gray-200 rounded hover:bg-gray-500 transition duration-150">
+                    Clear Log
+                </button>
+            </div>
+            <div id="activityLog" class="activity-log p-2">
+                <div class="log-item log-info">App initialized. Ready for API calls.</div>
+            </div>
+        </section>
+
     </div>
 
     <script>
-        // --- GOOGLE APPS SCRIPT WEB APP URL (Your Deployed URL) ---
+        // --- GOOGLE APPS SCRIPT WEB APP URL (IMPORTANT: DO NOT CHANGE THIS URL) ---
         const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw0BUrVKuZd1a_2PuWiwrpGjE6ks4vj1VISW6gnQwx_JtyEU3TGFMkpdHW2pFBt6RWE/exec'; 
         
         const DRIVE_FOLDER_ID = '1KUaOHK5iALhZjxOG4YTUqYTU5_lDR1tM';
+        const activityLogEl = document.getElementById('activityLog');
+
+        // --- Console/Logging Function ---
+
+        /**
+         * Logs messages to the built-in console.
+         * @param {string} message - The message content.
+         * @param {string} type - 'info', 'success', or 'error'.
+         */
+        function logToConsole(message, type = 'info') {
+            const now = new Date();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            const item = document.createElement('div');
+            item.className = `log-item log-${type}`;
+            item.innerHTML = `[${time}] &mdash; ${message}`;
+            
+            // Prepend new item to the top
+            if (activityLogEl.firstChild) {
+                activityLogEl.insertBefore(item, activityLogEl.firstChild);
+            } else {
+                activityLogEl.appendChild(item);
+            }
+            
+            // Maintain scroll position (optional: scroll to top for newest message)
+            activityLogEl.scrollTop = 0; 
+        }
+
+        document.getElementById('clearConsoleButton').addEventListener('click', () => {
+            activityLogEl.innerHTML = '<div class="log-item log-info">Activity Log Cleared.</div>';
+        });
 
         // --- Utility Functions ---
 
@@ -122,6 +186,7 @@
 
             if (!file) {
                 showMessage('uploadMessage', 'Please select a file to upload.', 'error');
+                logToConsole('Upload failed: No file selected.', 'error');
                 return;
             }
 
@@ -130,12 +195,14 @@
             uploadButton.textContent = 'Uploading...';
             messageEl.classList.add('hidden');
 
-            // Apps Script requires the file blob to be the only thing in the FormData
+            // Log request
+            logToConsole(`Preparing to upload file: ${file.name} (${formatBytes(file.size)})`, 'info');
+            logToConsole(`API POST Request to: ${GAS_API_URL}`, 'info');
+
             const formData = new FormData();
-            formData.append('file', file, file.name); // 'file' must match the key expected by Apps Script
+            formData.append('file', file, file.name);
 
             try {
-                // Send file to the Apps Script endpoint
                 const response = await fetch(GAS_API_URL, {
                     method: 'POST',
                     body: formData,
@@ -145,22 +212,25 @@
                     const result = await response.json();
                     if (result.message && result.message.includes('successfully')) {
                         showMessage('uploadMessage', `Success! File uploaded: ${result.fileName}`, 'success');
+                        logToConsole(`Upload successful. Drive File ID: ${result.fileId}`, 'success');
                         fetchFileList();
                     } else {
+                        logToConsole(`Upload failed. API Response: ${JSON.stringify(result)}`, 'error');
                          throw new Error(`Upload failed. Details: ${result.message || 'Check console for details.'}`);
                     }
                 } else {
                     const text = await response.text();
-                    // Apps Script returns HTML error pages for some issues, not always JSON
-                    throw new Error(`Server returned status ${response.status}. See console for raw response.`);
+                    logToConsole(`API Error Status: ${response.status}`, 'error');
+                    logToConsole(`Raw API Response: ${text.substring(0, 200)}...`, 'error');
+                    throw new Error(`Server returned status ${response.status}. See Activity Log.`);
                 }
             } catch (error) {
-                console.error('Upload Error:', error);
-                showMessage('uploadMessage', `Error during upload: ${error.message || 'Check console for details.'}`, 'error');
+                logToConsole(`FATAL UPLOAD ERROR: ${error.message}`, 'error');
+                showMessage('uploadMessage', `Error during upload: ${error.message || 'Check Activity Log for details.'}`, 'error');
             } finally {
                 uploadButton.disabled = false;
                 uploadButton.textContent = 'Upload to Drive';
-                fileInput.value = ''; // Clear the file input
+                fileInput.value = '';
             }
         });
 
@@ -178,9 +248,11 @@
             refreshButton.disabled = true;
             listEl.classList.add('opacity-50');
             
+            const listUrl = `${GAS_API_URL}?action=listFiles`;
+            logToConsole(`API GET Request to: ${listUrl}`, 'info');
+
             try {
-                // Request file list from the Apps Script endpoint with an action parameter
-                const response = await fetch(`${GAS_API_URL}?action=listFiles`, {
+                const response = await fetch(listUrl, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                 });
@@ -191,14 +263,15 @@
 
                 const result = await response.json();
                 const files = result.files || [];
+                
+                logToConsole(`List received. Found ${files.length} files.`, 'success');
 
                 if (files.length === 0) {
                     listEl.innerHTML = '<li class="text-center text-gray-500 py-4">This folder is currently empty.</li>';
                 } else {
                     files.forEach(file => {
                         const listItem = document.createElement('li');
-                        // Use a specific icon based on mimeType (placeholder icons here)
-                        let icon = '📦'; // Default file icon
+                        let icon = '📦';
                         if (file.mimeType.includes('image')) { icon = '🖼️'; }
                         else if (file.mimeType.includes('pdf')) { icon = '📄'; }
                         else if (file.mimeType.includes('spreadsheet')) { icon = '📊'; }
@@ -221,9 +294,9 @@
                     });
                 }
             } catch (error) {
-                console.error('List Error:', error);
+                logToConsole(`FATAL LIST ERROR: ${error.message}`, 'error');
                 showMessage('listMessage', `Failed to load file list. Error: ${error.message}`, 'error');
-                listEl.innerHTML = '<li class="text-center text-red-500 py-4">Error loading data. See console for details.</li>';
+                listEl.innerHTML = '<li class="text-center text-red-500 py-4">Error loading data. See Activity Log.</li>';
             } finally {
                 loadingEl.classList.add('hidden');
                 refreshButton.disabled = false;
