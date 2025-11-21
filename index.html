@@ -74,10 +74,9 @@
     </div>
 
     <script>
-        // --- Netlify Function Endpoints ---
-        // These URLs point to the functions you will deploy on Netlify.
-        const UPLOAD_ENDPOINT = '/.netlify/functions/uploadFile';
-        const LIST_ENDPOINT = '/.netlify/functions/listFiles';
+        // --- GOOGLE APPS SCRIPT WEB APP URL (Your Deployed URL) ---
+        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw0BUrVKuZd1a_2PuWiwrpGjE6ks4vj1VISW6gnQwx_JtyEU3TGFMkpdHW2pFBt6RWE/exec'; 
+        
         const DRIVE_FOLDER_ID = '1KUaOHK5iALhZjxOG4YTUqYTU5_lDR1tM';
 
         // --- Utility Functions ---
@@ -131,25 +130,29 @@
             uploadButton.textContent = 'Uploading...';
             messageEl.classList.add('hidden');
 
+            // Apps Script requires the file blob to be the only thing in the FormData
             const formData = new FormData();
-            formData.append('file', file);
-            formData.append('folderId', DRIVE_FOLDER_ID); // Send folder ID to the Netlify Function
+            formData.append('file', file, file.name); // 'file' must match the key expected by Apps Script
 
             try {
-                // The client sends the file to the secure Netlify Function endpoint
-                const response = await fetch(UPLOAD_ENDPOINT, {
+                // Send file to the Apps Script endpoint
+                const response = await fetch(GAS_API_URL, {
                     method: 'POST',
                     body: formData,
                 });
 
                 if (response.ok) {
                     const result = await response.json();
-                    showMessage('uploadMessage', `Success! File uploaded: ${result.fileName}`, 'success');
-                    // Refresh the file list after a successful upload
-                    fetchFileList();
+                    if (result.message && result.message.includes('successfully')) {
+                        showMessage('uploadMessage', `Success! File uploaded: ${result.fileName}`, 'success');
+                        fetchFileList();
+                    } else {
+                         throw new Error(`Upload failed. Details: ${result.message || 'Check console for details.'}`);
+                    }
                 } else {
-                    const errorJson = await response.json().catch(() => ({ message: 'Unknown server error.' }));
-                    throw new Error(`Upload failed. Details: ${errorJson.message || 'Check console for details.'}`);
+                    const text = await response.text();
+                    // Apps Script returns HTML error pages for some issues, not always JSON
+                    throw new Error(`Server returned status ${response.status}. See console for raw response.`);
                 }
             } catch (error) {
                 console.error('Upload Error:', error);
@@ -174,18 +177,16 @@
             loadingEl.classList.remove('hidden');
             refreshButton.disabled = true;
             listEl.classList.add('opacity-50');
-
+            
             try {
-                // The client requests the file list from the secure Netlify Function endpoint
-                // We use GET for listing since we don't send large data
-                const response = await fetch(`${LIST_ENDPOINT}?folderId=${DRIVE_FOLDER_ID}`, {
+                // Request file list from the Apps Script endpoint with an action parameter
+                const response = await fetch(`${GAS_API_URL}?action=listFiles`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                 });
 
                 if (!response.ok) {
-                    const errorJson = await response.json().catch(() => ({ message: 'Unknown server error.' }));
-                    throw new Error(`Failed to fetch list. Details: ${errorJson.message || 'Check console for details.'}`);
+                    throw new Error(`Failed to fetch list. Server status: ${response.status}`);
                 }
 
                 const result = await response.json();
@@ -194,9 +195,6 @@
                 if (files.length === 0) {
                     listEl.innerHTML = '<li class="text-center text-gray-500 py-4">This folder is currently empty.</li>';
                 } else {
-                    // Sort files by creation time, newest first
-                    files.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
-
                     files.forEach(file => {
                         const listItem = document.createElement('li');
                         // Use a specific icon based on mimeType (placeholder icons here)
@@ -224,7 +222,7 @@
                 }
             } catch (error) {
                 console.error('List Error:', error);
-                showMessage('listMessage', `Failed to load file list. Please ensure the backend is deployed and configured correctly.`, 'error');
+                showMessage('listMessage', `Failed to load file list. Error: ${error.message}`, 'error');
                 listEl.innerHTML = '<li class="text-center text-red-500 py-4">Error loading data. See console for details.</li>';
             } finally {
                 loadingEl.classList.add('hidden');
