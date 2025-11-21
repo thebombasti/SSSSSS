@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Drive File Manager</title>
+    <title>Secure Drive File Uploader</title>
     
     <!-- FIX 1: Load Tailwind CDN FIRST -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -134,9 +134,9 @@
     <script>
         // --- GOOGLE APPS SCRIPT WEB APP URL (IMPORTANT: DO NOT CHANGE THIS URL) ---
         // This must be the /exec URL of your deployed Web App, not the /edit URL.
-        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw0BUrVKuZd1a_2PuWiwrpGjE6ks4vj1VISW6gnQwx_JtyEU3TGFMkpdHW2pFBt6RWE/exec'; 
+        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwG2G6665c0iZSAfY5KLIAHqY3NA0eHBvzDjdimgUukUdEkGXkFYeAEcMvOmkpaRT6r/exec'; 
         
-        const DRIVE_FOLDER_ID = '1KUaOHK5iALhZjxOG4YTUqYTU5_lDR1tM';
+        const DRIVE_FOLDER_ID = '1KUaOHK5iALhZjxOG4YTUqYTU5_lDR1tM'; // Note: This ID is used for display/logging only on the front-end, the backend script must also target a folder.
         const activityLogEl = document.getElementById('activityLog');
         const htmlEl = document.documentElement;
         const themeToggleBtn = document.getElementById('themeToggle');
@@ -206,7 +206,7 @@
             }
             
             // Maintain scroll position (optional: scroll to top for newest message)
-            activityLogEl.scrollTop = 0; 
+            activityLogEl.scrollTop = 0; 
         }
 
         document.getElementById('clearConsoleButton').addEventListener('click', () => {
@@ -287,7 +287,7 @@
                         fetchFileList();
                     } else {
                         logToConsole(`Upload failed. API Response: ${JSON.stringify(result)}`, 'error');
-                         throw new Error(`Upload failed. Details: ${result.message || 'Check console for details.'}`);
+                        throw new Error(`Upload failed. Details: ${result.message || 'Check console for details.'}`);
                     }
                 } else {
                     const text = await response.text();
@@ -320,7 +320,7 @@
             refreshButton.disabled = true;
             listEl.classList.add('opacity-50');
             
-            const listUrl = `${GAS_API_URL}?action=listFiles`;
+            const listUrl = `${GAS_API_URL}?action=listFiles&folderId=${DRIVE_FOLDER_ID}`;
             logToConsole(`API GET Request to: ${listUrl}`, 'info');
 
             try {
